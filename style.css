@@ -19,3 +19,5 @@
 @keyframes customer-bounce{50%{transform:translateY(-3px)}}
 @keyframes cookie-pickup{0%,48%{opacity:0;transform:scale(.4)}55%,95%{opacity:1;transform:scale(1)}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.is-playing .customer,.is-playing .customer-person,.is-playing .customer-purchase{animation:none}.is-playing .customer:first-child{left:56%;opacity:1}.is-playing .customer:first-child .customer-purchase{opacity:1}}
+
+select{font:inherit;width:100%;min-width:0;padding:12px 0;border:0;background:transparent;color:#33261e;font-weight:600;cursor:pointer}select:focus-visible{outline:2px solid #b78954;outline-offset:3px}.recipe-description{font-size:12px;color:#78664f;line-height:1.6;margin:9px 0 19px}
