@@ -31,7 +31,25 @@ try:
             page.locator('#advertising').fill('0')
             page.locator('#open').click()
             return page.evaluate('JSON.parse(localStorage.getItem("kevin-cookie-tycoon-v1"))')
+        assert page.locator('#variety').input_value() == 'chocolateChip'
+        assert page.locator('#variety option:checked').inner_text() == 'Chocolate chip'
+        assert page.locator('#variety').evaluate('(el) => getComputedStyle(el).fontFamily') == page.locator('#quantity').evaluate('(el) => getComputedStyle(el).fontFamily')
+        for variety, price, unit_cost in [('chocolateChip',1.5,.5),('oatmealRaisin',1.1,.35),('doubleChocolate',2.2,.75),('macadamia',2.8,1)]:
+            seed()
+            page.select_option('#variety', variety)
+            assert float(page.locator('#price').input_value()) == price
+            assert page.locator('#ingredient-cost').inner_text() == f'${unit_cost:.2f} each'
+            assert page.locator('#cost').inner_text() == f'${80*unit_cost+15:.2f}'
+            page.reload(wait_until='domcontentloaded')
+            assert page.locator('#variety').input_value() == variety
+            state = play(100, price)
+            result = state['history'][-1]
+            assert result['variety'] == variety and result['unitCost'] == unit_cost
+            assert result['expenses'] == 100*unit_cost+5
+            assert f'${100*unit_cost:.2f} ingredients' in page.locator('.note').inner_text()
+            assert page.locator('#variety option:checked').inner_text() in page.locator('#history').inner_text()
         seed()
+        assert page.locator('#variety').input_value() == 'chocolateChip'
         state = play(100, 1.5)
         result = state['history'][-1]
         assert result['demand'] == 85 and result['sold'] == 85
@@ -82,6 +100,7 @@ try:
         page.locator('#restart').click()
         page.wait_for_function("document.getElementById('cash').textContent === '$100.00'")
         assert page.locator('#satisfaction').inner_text() == '70/100'
+        assert page.locator('#variety').input_value() == 'chocolateChip'
         page.locator('#quantity').fill('1000000')
         assert page.locator('#open').is_disabled()
         assert page.evaluate('JSON.parse(localStorage.getItem("kevin-cookie-tycoon-v1")).satisfaction') == 70

@@ -18,8 +18,9 @@
   };
   const recipeFor = id => varieties[id] || varieties.chocolateChip;
   let state;
-  function fresh(){return {cash:100,satisfaction:70,history:[],market:Math.floor(Math.random()*markets.length)};}
+  function fresh(){return {cash:100,satisfaction:70,history:[],variety:'chocolateChip',market:Math.floor(Math.random()*markets.length)};}
   try { const saved = JSON.parse(localStorage.getItem(KEY)); state = saved && Number.isFinite(saved.cash) && saved.cash >= 0 && Array.isArray(saved.history) && saved.history.length <= 30 && Number.isInteger(saved.market) && markets[saved.market] ? saved : fresh(); } catch { state = fresh(); }
+  state.variety = Object.hasOwn(varieties, state.variety) ? state.variety : 'chocolateChip';
   // Older saves retain their financial history and begin satisfaction tracking at 70.
   if (!Number.isFinite(state.satisfaction)) state.satisfaction = 70;
   state.satisfaction = Math.max(0, Math.min(100, Math.round(state.satisfaction)));
@@ -62,7 +63,7 @@
   function showResult(r, animate){
     $('result-title').textContent = `Day ${r.day}, all wrapped up.`;
     $('result').innerHTML = customerScene(r.sold, animate) + `<div class="profit-highlight"><h3 class="profit-label">Daily profit</h3><div class="result-hero ${r.profit>=0?'positive':'negative'}">${r.profit>=0?'+':''}${money(r.profit)}</div><div class="profit-explanation">Revenue minus all daily expenses</div></div>` +
-    [['Cookies sold',`${r.sold} <small>/ ${r.baked} baked</small>`],['Revenue',money(r.revenue)],['Expenses',money(r.expenses)],['Remaining cash',money(r.cash)]].map(([k,v])=>`<div class="result-row"><span>${k}</span><strong>${v}</strong></div>`).join('') + `<div class="satisfaction-report"><h3>Customer satisfaction</h3><p>${satisfactionSummary(r)}</p></div><div class="note">${r.baked-r.sold} unsold cookies expired. Expenses include ${money(r.baked*.5)} ingredients, ${money(r.ad)} advertising, and $5.00 overhead.<br>${r.sold===r.baked && r.baked>0?'Sold out! You may have room for a bigger batch.':'Try adjusting your price, batch size, or advertising tomorrow.'}</div>`;
+    [['Cookie variety',recipeFor(r.variety).name],['Cookies sold',`${r.sold} <small>/ ${r.baked} baked</small>`],['Revenue',money(r.revenue)],['Expenses',money(r.expenses)],['Remaining cash',money(r.cash)]].map(([k,v])=>`<div class="result-row"><span>${k}</span><strong>${v}</strong></div>`).join('') + `<div class="satisfaction-report"><h3>Customer satisfaction</h3><p>${satisfactionSummary(r)}</p></div><div class="note">${r.baked-r.sold} unsold cookies expired. Expenses include ${money(r.baked*(Number.isFinite(r.unitCost)?r.unitCost:.5))} ingredients, ${money(r.ad)} advertising, and $5.00 overhead.<br>${r.sold===r.baked && r.baked>0?'Sold out! You may have room for a bigger batch.':'Try adjusting your price, batch size, or advertising tomorrow.'}</div>`;
   }
   function render(animate = false){
     $('satisfaction').textContent=`${state.satisfaction}/100`;
@@ -71,7 +72,7 @@
     $('profit').textContent=money(cents(state.cash-100));
     $('market').textContent=`${markets[state.market].name} · ${markets[state.market].text}`;
     $('journal-count').textContent=`${state.history.length} days in the books`;
-    if(state.history.length){showResult(state.history[state.history.length-1], animate);$('history').innerHTML=state.history.slice().reverse().map(r=>`<tr><td>${r.day}</td><td>${r.baked} / ${r.sold}</td><td>${money(r.price)}</td><td>${money(r.revenue)}</td><td>${money(r.expenses)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(r.cash)}</td><td class="satisfaction-history">${satisfactionSummary(r)}</td></tr>`).join('');}
+    if(state.history.length){showResult(state.history[state.history.length-1], animate);$('history').innerHTML=state.history.slice().reverse().map(r=>`<tr><td>${r.day}</td><td>${recipeFor(r.variety).name}</td><td>${r.baked} / ${r.sold}</td><td>${money(r.price)}</td><td>${money(r.revenue)}</td><td>${money(r.expenses)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(r.cash)}</td><td class="satisfaction-history">${satisfactionSummary(r)}</td></tr>`).join('');}
     $('plan').hidden=finished();$('ending').hidden=!finished();
     if(finished()){
       $('badge').textContent='Shop closed';$('plan-title').textContent=state.history.length>=30?'Thirty days. One sweet story.':'Time for a fresh batch.';
@@ -99,7 +100,7 @@
     const satisfaction = satisfactionForDay(p,q,demand,state.satisfaction);
     state.satisfaction = satisfaction.score;
     state.cash=cents(state.cash+profit);
-    state.history.push({day:state.history.length+1,baked:q,sold,price:p,ad,revenue,expenses:cost,profit,cash:state.cash,demand,satisfaction});
+    state.history.push({day:state.history.length+1,baked:q,sold,variety:state.variety,unitCost:recipe.cost,price:p,ad,revenue,expenses:cost,profit,cash:state.cash,demand,satisfaction});
     state.market=Math.floor(Math.random()*markets.length);save();render(true);
   });
   $('restart').addEventListener('click',()=>{if(state.history.length && !confirm('Start over with $100? Your current shop journal will be cleared.'))return;state=fresh();save();location.reload();});
