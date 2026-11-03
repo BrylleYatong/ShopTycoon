@@ -22,18 +22,22 @@ Saved progress belongs to the current browser and file location. There is no bac
 
 Opening a day plays a CSS storefront animation in the daily results. Up to 24 emoji customers arrive, collect cookies, and leave; larger sales are grouped across visitors, with purchase quantities shown beside their cookies. The scene is decorative and uses the actual sales result without changing the simulation. Zero sales show a quiet shop. Reloading a saved game does not replay the animation. Reduced-motion preferences disable movement.
 
+## Customer satisfaction
 
-## Cookie varieties
+Satisfaction starts at 70/100 and stays between 0 and 100. Each completed day applies two effects:
 
-Choose one recipe for each day, then adjust its selling price, batch size, and advertising. Changing recipes fills in the suggested selling price; you can freely edit it before opening.
+- **Price:** round `(1.50 - price) × 4` to the nearest integer, limited to −10 through +5 points. Small differences around $1.50 are neutral.
+- **Availability:** meeting all positive demand earns +3 points. A shortage costs the rounded percentage of unmet demand × 15 points (at least −1, at most −15). Zero demand has no inventory effect.
 
-| Recipe | Ingredient cost per cookie | Suggested selling price |
-| --- | --- | --- |
-| Chocolate chip | $0.50 | $1.50 |
-| Oatmeal raisin | $0.35 | $1.10 |
-| Double chocolate | $0.75 | $2.20 |
-| White chocolate macadamia | $1.00 | $2.80 |
+The overview shows the current score. Daily results and the journal show the actual score change, both contributing effects, and whether the score reached a limit. Satisfaction tracks customer experience; demand and financial calculations retain their existing rules. Progress saves automatically. Older saves keep their cash and journal and begin satisfaction at 70; historical days without satisfaction data are labeled as not tracked. A new game resets satisfaction to 70.
 
-Suggested prices are also each recipe’s demand reference: premium recipes support higher prices, but tie up more cash in ingredients. Expenses charge the selected recipe’s cost for every cookie baked, including leftovers. Daily results and the journal identify the recipe. The selected recipe saves automatically; old saves and journal entries without recipe information remain chocolate chip at the original $0.50 ingredient cost.
+## Regression tests
 
-Run `node tests/varieties.test.js` to verify recipe accounting, affordability, defaults, save migration, journal rendering, and the 30-day limit using a lightweight DOM harness.
+With Python Playwright and Chromium installed, run from the repository root:
+
+```sh
+node --check game.js
+python3 tests/satisfaction.py
+```
+
+The browser suite starts and stops its own local server and uses disposable browser storage. It covers price and inventory effects, zero demand, score limits, daily explanations, accounting, persistence, older saves, restarting, unaffordable plans, and mobile layout. Chromium is expected at `/usr/bin/chromium`.
