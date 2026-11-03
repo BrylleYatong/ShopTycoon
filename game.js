@@ -11,8 +11,25 @@
     {name:'An ordinary sweet day',text:'Steady foot traffic. A good day to find your sweet spot.',factor:1}
   ];
   let state;
-  function fresh(){return {cash:100,history:[],market:Math.floor(Math.random()*markets.length)};}
+  function fresh(){return {cash:100,satisfaction:70,history:[],market:Math.floor(Math.random()*markets.length)};}
   try { const saved = JSON.parse(localStorage.getItem(KEY)); state = saved && Number.isFinite(saved.cash) && saved.cash >= 0 && Array.isArray(saved.history) && saved.history.length <= 30 && Number.isInteger(saved.market) && markets[saved.market] ? saved : fresh(); } catch { state = fresh(); }
+  // Older saves retain their financial history and begin satisfaction tracking at 70.
+  if (!Number.isFinite(state.satisfaction)) state.satisfaction = 70;
+  state.satisfaction = Math.max(0, Math.min(100, Math.round(state.satisfaction)));
+  const signed = n => `${n > 0 ? '+' : ''}${n}`;
+  function satisfactionForDay(price, baked, demand, before){
+    const priceEffect = Math.max(-10, Math.min(5, Math.round((1.5-price)*4)));
+    const unmet = Math.max(0, demand-baked);
+    const inventoryEffect = demand === 0 ? 0 : unmet === 0 ? 3 : -Math.max(1, Math.round(unmet/demand*15));
+    const score = Math.max(0, Math.min(100, before+priceEffect+inventoryEffect));
+    const priceReason = priceEffect > 0 ? 'Good value below $1.50' : priceEffect < 0 ? 'Price above $1.50' : 'Price near the $1.50 reference';
+    const inventoryReason = demand === 0 ? 'No demand to serve' : unmet === 0 ? `All ${demand} requested cookies were available` : `${unmet} of ${demand} requested cookies were unavailable`;
+    return {score, change:score-before, priceEffect, inventoryEffect,
+      explanation:`${priceReason}: ${signed(priceEffect)} points. ${inventoryReason}: ${signed(inventoryEffect)} points.${score !== before+priceEffect+inventoryEffect ? ' Score limited to 0–100.' : ''}`};
+  }
+  function satisfactionSummary(r){
+    return r.satisfaction ? `${r.satisfaction.score}/100 (${signed(r.satisfaction.change)}). ${r.satisfaction.explanation}` : 'Not tracked for this day.';
+  }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{$('badge').textContent='Saving unavailable';}}
   function finished(){return state.history.length >= 30 || state.cash < 5;}
   function estimate(){
@@ -37,15 +54,16 @@
   function showResult(r, animate){
     $('result-title').textContent = `Day ${r.day}, all wrapped up.`;
     $('result').innerHTML = customerScene(r.sold, animate) + `<div class="profit-highlight"><h3 class="profit-label">Daily profit</h3><div class="result-hero ${r.profit>=0?'positive':'negative'}">${r.profit>=0?'+':''}${money(r.profit)}</div><div class="profit-explanation">Revenue minus all daily expenses</div></div>` +
-    [['Cookies sold',`${r.sold} <small>/ ${r.baked} baked</small>`],['Revenue',money(r.revenue)],['Expenses',money(r.expenses)],['Remaining cash',money(r.cash)]].map(([k,v])=>`<div class="result-row"><span>${k}</span><strong>${v}</strong></div>`).join('') + `<div class="note">${r.baked-r.sold} unsold cookies expired. Expenses include ${money(r.baked*.5)} ingredients, ${money(r.ad)} advertising, and $5.00 overhead.<br>${r.sold===r.baked && r.baked>0?'Sold out! You may have room for a bigger batch.':'Try adjusting your price, batch size, or advertising tomorrow.'}</div>`;
+    [['Cookies sold',`${r.sold} <small>/ ${r.baked} baked</small>`],['Revenue',money(r.revenue)],['Expenses',money(r.expenses)],['Remaining cash',money(r.cash)]].map(([k,v])=>`<div class="result-row"><span>${k}</span><strong>${v}</strong></div>`).join('') + `<div class="satisfaction-report"><h3>Customer satisfaction</h3><p>${satisfactionSummary(r)}</p></div><div class="note">${r.baked-r.sold} unsold cookies expired. Expenses include ${money(r.baked*.5)} ingredients, ${money(r.ad)} advertising, and $5.00 overhead.<br>${r.sold===r.baked && r.baked>0?'Sold out! You may have room for a bigger batch.':'Try adjusting your price, batch size, or advertising tomorrow.'}</div>`;
   }
   function render(animate = false){
+    $('satisfaction').textContent=`${state.satisfaction}/100`;
     $('cash').textContent=money(state.cash);
     $('day').innerHTML=`${finished()?'Completed':`Day ${state.history.length+1}`} <small>/ 30</small>`;
     $('profit').textContent=money(cents(state.cash-100));
     $('market').textContent=`${markets[state.market].name} · ${markets[state.market].text}`;
     $('journal-count').textContent=`${state.history.length} days in the books`;
-    if(state.history.length){showResult(state.history[state.history.length-1], animate);$('history').innerHTML=state.history.slice().reverse().map(r=>`<tr><td>${r.day}</td><td>${r.baked} / ${r.sold}</td><td>${money(r.price)}</td><td>${money(r.revenue)}</td><td>${money(r.expenses)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(r.cash)}</td></tr>`).join('');}
+    if(state.history.length){showResult(state.history[state.history.length-1], animate);$('history').innerHTML=state.history.slice().reverse().map(r=>`<tr><td>${r.day}</td><td>${r.baked} / ${r.sold}</td><td>${money(r.price)}</td><td>${money(r.revenue)}</td><td>${money(r.expenses)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(r.cash)}</td><td class="satisfaction-history">${satisfactionSummary(r)}</td></tr>`).join('');}
     $('plan').hidden=finished();$('ending').hidden=!finished();
     if(finished()){
       $('badge').textContent='Shop closed';$('plan-title').textContent=state.history.length>=30?'Thirty days. One sweet story.':'Time for a fresh batch.';
@@ -59,8 +77,10 @@
     // Price elasticity and diminishing advertising returns create a strategic tradeoff.
     const demand=Math.max(0,Math.round(85*markets[state.market].factor*Math.pow(1.5/p,1.35)*(1+Math.log1p(ad/10)*.55)*(.9+Math.random()*.2)));
     const sold=Math.min(q,demand),revenue=cents(sold*p),profit=cents(revenue-cost);
+    const satisfaction = satisfactionForDay(p,q,demand,state.satisfaction);
+    state.satisfaction = satisfaction.score;
     state.cash=cents(state.cash+profit);
-    state.history.push({day:state.history.length+1,baked:q,sold,price:p,ad,revenue,expenses:cost,profit,cash:state.cash});
+    state.history.push({day:state.history.length+1,baked:q,sold,price:p,ad,revenue,expenses:cost,profit,cash:state.cash,demand,satisfaction});
     state.market=Math.floor(Math.random()*markets.length);save();render(true);
   });
   $('restart').addEventListener('click',()=>{if(state.history.length && !confirm('Start over with $100? Your current shop journal will be cleared.'))return;state=fresh();save();location.reload();});
